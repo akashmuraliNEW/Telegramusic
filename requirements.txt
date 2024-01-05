@@ -5,3 +5,5 @@ requests==2.31.0
 mutagen==1.47.0
 Pillow==10.2.0
 yt-dlp==2023.12.30
+youtube-search-python
+youtube-search
