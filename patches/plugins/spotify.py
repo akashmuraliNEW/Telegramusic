@@ -1,600 +1,142 @@
-##https://t.me/Spotify_downloa_bot
-"""MIT License
+from __future__ import unicode_literals
 
-Copyright (c) 2022 Daniel
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-""" 
-from pyrogram.errors import FloodWait,Forbidden,UserIsBlocked,MessageNotModified,ChatWriteForbidden, SlowmodeWait 
-from asyncio import sleep
-#from mbot.utils.progress import progress
-import time
-#from mbot import AUTH_CHATS, LOGGER, Mbot,LOG_GROUP,BUG
-from pyrogram import filters,enums
-from mbot.utils.mainhelper import parse_spotify_url,fetch_spotify_track,download_songs,thumb_down,copy,forward 
-from mbot.utils.ytdl import getIds,ytdl_down,audio_opt
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyClientCredentials
-#import psutil
-from os import mkdir
-from os import environ
-from shutil import rmtree
-#from Script import script
-from random import randint
-#import random
-#import eyed3 
-from mutagen import File
-from mutagen.flac import FLAC ,Picture
-from lyricsgenius import Genius 
+import os, requests, asyncio, math, time, wget
+from pyrogram import filters, Client
 from pyrogram.types import Message
-from pyrogram.errors.rpc_error import RPCError
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram import Client, filters
-#import psutil
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong, PeerIdInvalid
-#from info import  ADMINS, LOG_CHANNEL, SUPPORT_CHAT, MELCOW_NEW_USERS
-#from database.users_chats_db import db
-#from database.ia_filterdb import Media
-#from utils import temp
-#from Script import script
-from pyrogram.errors import ChatAdminRequired
-#from mbot import BUG
-from requests import head
-ADMINS = 823882413
-from requests.exceptions import MissingSchema
-client = Spotify(auth_manager=SpotifyClientCredentials(client_id='a145db3dcd564b9592dacf10649e4ed5', client_secret='389614e1ec874f17b8c99511c7baa2f6'))
-PICS = ("mbot/1162775.jpg mbot/danny-howe-bn-D2bCvpik-unsplash.jpg mbot/saurabh-gill-38RthwbB3nE-unsplash.jpg").split()
-MAIN = bool(environ.get('MAIN', None))
-genius = Genius("biZZReO7F98mji5oz3cE0FiIG73Hh07qoXSIzYSGNN3GBsnY-eUrPAVSdJk_0_de")
-BUG = int(-1001586704430)
-LOG_TEXT_P = """
-ID - <code>{}</code>
-Name - {}
-"""
-@Client.on_message(filters.incoming & filters.regex(r'https?://open.spotify.com[^\s]+') | filters.incoming & filters.regex(r'https?://spotify.link[^\s]+'), group=-2)
-async def spotify_dl(client,message: Message):
-    if MAIN:
-       await message.reply_text(f"Bot Is Under Maintenance ⚠️")
-       return
-    link = message.matches[0].group(0)
-    if "https://spotify.link" in link:
-        link = head(link).headers['location']
-    if "https://www.deezer.com" in link:
-       return
-    if "https://youtu.be" in link:
-          return await message.reply("301: Use /s command Insted Of this 🚫")
+from os import environ 
+
+from youtube_search import YoutubeSearch
+from youtubesearchpython import SearchVideos
+from yt_dlp import YoutubeDL
+#from info import MUSIC_CHAT
+#FIXIE_SOCKS_HOST= environ.get('FIXIE_SOCKS_HOST')
+
+@Client.on_message(filters.command(['song', 's']) & ~filters.private & ~filters.channel)
+async def song(client, message):
+   #if message.chat.id in MUSIC_CHAT:
+    user_id = message.from_user.id 
+    user_name = message.from_user.first_name 
+    rpk = "["+user_name+"](tg://user?id="+str(user_id)+")"
+    query = ''
+    for i in message.command[1:]:
+        query += ' ' + str(i)
+    print(query)
+    m = await message.reply(f"**ѕєαrchíng чσur ѕσng...!\n {query}**")
+    ydl_opts = {
+         "format": "bestaudio[ext=m4a]",
+    }
     try:
-        parsed_item = await parse_spotify_url(link)
-        item_type, item_id = parsed_item[0],parsed_item[1]
+        results = YoutubeSearch(query, max_results=1).to_dict()
+        link = f"https://youtube.com{results[0]['url_suffix']}"
+        title = results[0]["title"][:40]       
+        thumbnail = results[0]["thumbnails"][0]
+        thumb_name = f'thumb{title}.jpg'
+        thumb = requests.get(thumbnail, allow_redirects=True)
+        open(thumb_name, 'wb').write(thumb.content)
+        performer = f"[Rebekah]" 
+        duration = results[0]["duration"]
+        url_suffix = results[0]["url_suffix"]
+        views = results[0]["views"]
     except Exception as e:
-        pass
-        cr =  await message.reply("417: Not Critical, Retrying Again  🚫")
-        await  client.send_message(BUG,f" Private r: Unsupported [URI](link) Not critical {message.chat.id}  {message.from_user.id} {message.from_user.mention}")   
-        try:
-            link = head(link).headers['location']
-            parsed_item = await parse_spotify_url(link)
-            item_type, item_id = parsed_item[0],parsed_item[1]
-        except Exception as e:
-            pass 
-            await  client.send_message(BUG,f" Private r: Unsupported [URI](link) Failed twice {message.chat.id}  {message.from_user.id} {message.from_user.mention}")
-            return await cr.edit(f"501: This URI Is Not Supported ⚠")
-    if message.text.startswith("/thumb"):
-       try:
-          await Mbot.send_message(BUG,f"Thumb download requested from {message.from_user.mention}")
-          if item_type == "track":
-             item = client.track(track_id=item_id)
-             alb = client.album(album_id=item['album']['id'],)
-             await message.reply_document(alb['images'][0]['url'])
-          elif item_type == "playlist":
-               play = client.playlist(playlist_id=item_id,)
-               await message.reply_document(play['images'][0]['url'])
-          elif item_type == "album":
-               alb = client.album(album_id=item_id,)
-               await message.reply_document(alb['images'][0]['url'])
-          elif item_type == "artist":
-               art = client.artist(item_id)
-               await message.reply_document(art['images'][0]['url'])
-       except Exception as e:
-           pass
-           await message.reply("404: sorry, thumbnail download is not available for this track 😔")
-           await client.send_message(BUG,f" thumb 400 {e}")
-       return 
-    if message.text.startswith("/preview"):
-          if item_type == "track":
-             try:
-                 await client.send_message(BUG,f"Preview download requested from {message.from_user.mention}")
-                 item = client.track(track_id=item_id)
-                 await  message.reply_audio(f"{item.get('preview_url')}")
-             except Exception as e:
-                 pass
-                 await message.reply("404: sorry, audio preview is not available for this track 😔")
-                 await client.send_message(BUG,e)
-          return 
-    try: 
-       if item_type in ["https:","http:"]:
-          cr =  await message.reply("417: Not Critical, Retrying Again  🚫")
-          await sleep(1)
-          return await cr.edit(f"501: This URI Is Not Supported ⚠")
+        print(str(e))
+        return await m.edit("**𝙵𝙾𝚄𝙽𝙳 𝙽𝙾𝚃𝙷𝙸𝙽𝙶 𝙿𝙻𝙴𝙰𝚂𝙴 𝙲𝙾𝚁𝚁𝙴𝙲𝚃 𝚃𝙷𝙴 𝚂𝙿𝙴𝙻𝙻𝙸𝙽𝙶 𝙾𝚁 𝙲𝙷𝙴𝙲𝙺 𝚃𝙷𝙴 𝙻𝙸𝙽𝙺**")
+                
+    await m.edit("**dσwnlσαdíng чσur ѕσng...!**")
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=False)
+            audio_file = ydl.prepare_filename(info_dict)
+            ydl.process_info(info_dict)
+
+        cap = f'🎶 𝐓𝐈𝐓𝐋𝐄 ›› {title}\n𝐃𝐔𝐑𝐀𝐓𝐈𝐎𝐍 ›› {duration}'
+        secmul, dur, dur_arr = 1, 0, duration.split(':')
+        for i in range(len(dur_arr)-1, -1, -1):
+            dur += (int(dur_arr[i]) * secmul)
+            secmul *= 60
+        await message.reply_audio(
+            audio_file,
+            caption=cap,            
+            quote=False,
+            title=title,
+            duration=dur,
+            reply_to_message_id=message.id,
+            performer=performer,
+            thumb=thumb_name
+        )            
+        await m.delete()
     except Exception as e:
-        pass
-        await  client.send_message(BUG,f" Private r: Unsupported http [URI](link) Failed twice {message.chat.id}  {message.from_user.id} {message.from_user.mention}")     
-    u = message.from_user.id
-    randomdir = f"/tmp/{str(randint(1,100000000))}"
-    mkdir(randomdir)
+        await m.edit("**🚫 𝙴𝚁𝚁𝙾𝚁 🚫**")
+        print(e)
     try:
-        m = await message.reply_text(f"⏳")
-        await message.reply_chat_action(enums.ChatAction.TYPING)
-    except ChatWriteForbidden:
-        pass
-        chat=message.chat.id
-        await client.leave_chat(chat)
-        k = await Client.send_message(-1001744816254,f"{chat} {message.chat.username} or {message.from_user.id}")
-        await  k.pin()
-        sp = f"I have left from {chat} reason: I Am Not  Admin "
-        await client.send_message(message.from_user.id,f"{sp}") 
-    try:
-        if item_type in ["show", "episode"]:
-            items = await getIds(link)
-            for item in items:
-                cForChat = await message.reply_chat_action(enums.ChatAction.UPLOAD_PHOTO)
-                sleeeps = await sleep (0.9)
-                PForCopy = await message.reply_photo(item[5],caption=f"✔️ Episode Name : `{item[3]}`\n🕔 Duration : {item[4]//60}:{item[4]%60}")
-                reply = await message.reply_text(f"sorry we removed support of  episode 😔 pls send other types album/playlist/track")
-       
-        elif item_type == "track":
-            song = await fetch_spotify_track(client,item_id)
-            #sleeeps = await sleep (0.9)
-            try:
-                item = client.track(track_id=item_id)
-            except:
-                pass
-               
-            try:
-                if not item:
-           #         await message.reply_chat_action(enums.ChatAction.UPLOAD_PHOTO)
-                    PForCopy = await message.reply_photo(song.get('cover'),caption=f"🎧 Title : `{song['name']}`\n🎤 Artist : `{song['artist']}`\n💽 Album : `{song['album']}`\n🗓 Release Year: `{song['year']}`\n\n[IMAGE]({song.get('cover')})\nTrack id:`{song['deezer_id']}`")
-           #         await message.reply_chat_action(enums.ChatAction.UPLOAD_DOCUMENT)
-            #        document= await message.reply_document(song.get('cover'))  
-                else:
-                     PForCopy = await message.reply_photo(item['album']['images'][0]['url'],caption=f"🎧 Title : `{song['name']}­­`\n🎤 Artist : `{song['artist']}`­\n💽 Album : `{song['album']}`\n🗓 Release Year: `{song['year']}`\n❗️Is Local:`{item['is_local']}`\n 🌐ISRC: `{item['external_ids']['isrc']}`\n\n[IMAGE]({item['album']['images'][0]['url']})\nTrack id:`{song['deezer_id']}`",
-                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-              #       document= await message.reply_document(alb['images'][0]['url'],
-                #     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-              # await message.reply_audio(f"{item.get('preview_url')}")
-            except:
-                pass
-         #       await message.reply_chat_action(enums.ChatAction.TYPING)
-                PForCopy = await message.reply_text(f"🎧 Title : `{song['name']}`\n­🎤 Artist : `{song['artist']}`\n💽 Album : `{song['album']}`\n🗓 Release Year: `{song['year']}`\n\n[IMAGE]({song.get('cover')})\ntrack id:`{song['deezer_id']}`")
-       #     try:
-       #         await message.reply_audio(f"{item.get('preview_url')}",
-       #         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-      #      except:
-      #          pass
-      #      await sleep(0.6)
-            try:
-               path = await download_songs(item,randomdir)
-            except Exception as e:
-                pass
-          #      await Mbot.send_message(BUG,e)
-                await message.reply_text(f"[{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) Track Not Found ⚠️")
-## optional you can clear this or add this by using #
-                await message.reply(e)
-         #       await message.reply_text(f"try `/saavn {song.get('name')} - {song.get('artist')}`")
-            thumbnail = await thumb_down(item['album']['images'][0]['url'],song.get('deezer_id'))
-            try:
-             #   await sleep(0.6)
-                audio = FLAC(path)
-                audio["TITLE"] = f" {song.get('name')}"
-                audio["ORIGINALYEAR"] = song.get('year')
-                audio["YEAR_OF_RELEASE"] = song.get('year')
-                audio["WEBSITE"] = "https://t.me/spotify_downloa_bot"
-                audio["GEEK_SCORE"] = "9"
-                audio["ARTIST"] = song.get('artist')                                                                            
-                audio["ALBUM"] = song.get('album')
-                audio["DATE"] = song.get('year')
-                audio["DISCNUMBER"] =f" {item['disc_number']}"
-                audio["TRACKNUMBER"] =f" {item['track_number']}"
-                try:
-                    audio["ISRC"] = item['external_ids']['isrc']
-                except:
-                    pass
-                try:
-                    songGenius = genius.search_song(song('name'), song('artist'))
-                    audio["LYRICS"] = (songGenius.lyrics)
-                except:
-                    pass
-                audio.save()
-                audi = File(path)
-                image = Picture() 
-                image.type = 3
-                if thumbnail.endswith('png'):
-                   mime = 'image/png'
-                else:
-                     mime = 'image/jpeg'
-                image.desc = 'front cover'
-                with open(thumbnail, 'rb') as f: # better than open(albumart, 'rb').read() ?
-                     image.data = f.read()
-
-                audi.add_picture(image)
-                audi.save()
-            except:
-                pass
-            try:
-                dForChat = await message.reply_chat_action(enums.ChatAction.UPLOAD_AUDIO)
-              #    sleep(1)
-                AForCopy = await message.reply_audio(path,performer=f"{song.get('artist')}­",title=f"{song.get('name')} - {song.get('artist')}",caption=f"[{song.get('name')}](https://open.spotify.com/track/{song.get('deezer_id')}) | {song.get('album')} - {song.get('artist')}",thumb=thumbnail, parse_mode=enums.ParseMode.MARKDOWN,quote=True,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-            except:
-                pass
-            if LOG_GROUP:
-               await forward(PForCopy,AForCopy)
-            #feedback = await message.reply_text(f"Done✅",   
-             #reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Feedback", callback_data="feed")]]))
-           # shutilrmtree(randomdir)
-        elif item_type == "playlist":
-            play = client.playlist(playlist_id=item_id,)
-           # if u in PREM:
-            tracks = client.playlist_items(playlist_id=item_id,additional_types=['track'], offset=0, market=None)   
-         #        tracks = client.playlist_items(playlist_id=item_id,additional_types=['track'], limit=30, offset=0, market=None) 
-            total_tracks = tracks.get('total')
-            track_no = 1
-            try:
-                PForCopy = await message.reply_photo(play['images'][0]['url'],
-                caption=f"▶️Playlist:{play['name']}\n📝Description:{play['description']}\n👤Owner:{play['owner']['display_name']}\n❤️Followers:{play['followers']['total']}\n🔢 Total Track:{play['tracks']['total']}\n\n[IMAGES]({play['images'][0]['url']})\n{play['uri']}")
-          #      document= await message.reply_document(play['images'][0]['url'])
-            #    sup = 40
-            #    if u in PREM:
-           #        re = 2
-           # #    else:
-          #           re = play['tracks']['total']
-           #     if re > sup:
-         #          await message.reply(f"trying to send first 40 tracks of {play['name']} total {re}")     
-            except Exception as e:
-                pass
-                PForCopy = await message.reply(f"▶️Playlist:{play['name']}\n📝Description:{play['description']}\n👤Owner:{play['owner']['display_name']}\n❤️Followers:{play['followers']['total']}\n🔢 Total Track:{play['tracks']['total']}\n\n[IMAGES]({play['images'][0]['url']})\n{play['tracks']['uri']}")
-                await message.reply("are you sure it's a valid playlist 🤨?")
-            
-            for track in tracks['items']:
-                song = await fetch_spotify_track(client,track.get('track').get('id'))
-                item = client.track(track_id=track['track']['id'])
-             #   cForChat = await message.reply_chat_action(enums.ChatAction.TYPING)
-               #sleeeps = await sleep (0.6)
-            #    try:
-           #        PForCopy = await message.reply_photo(song.get('cover'),caption=f"🎧 Title : `{song['name']}`\n🎤 Artist : `{song['artist']}`\n💽 Album : `{song['album']}`\n🗓 Release Year: `{song['year']}`\n❗️Is Local: `{track['is_local']}`\n🔢 Track No: `{track_no}`\n🔢 Total Track: `{total_tracks}`\n\n[IMAGE]({song.get('cover')})\ntrack id:`{song['deezer_id']}`")
-            #       document= await message.reply_document(song.get('cover'))
-             #   except:
-              #      pass
-                  #  PForCopy = await message.reply_text(f"🎧 Title : `{song['name']}`\n🎤 Artist : `{song['artist']}`\n💽 Album : `{song['album']}`\n🗓 Release Year: `{song['year']}`\n\n[IMAGE]({song.get('cover')})\ntrack id:`{song['deezer_id']}`")
-                #PForCopy = await message.reply_photo(song.get('cover'),caption=f"🎧 Title : `{song['name']}`\n🎤 Artist : `{song['artist']}`\n💽 Album : `{song['album']}`\n🎼 Genre : `{song['genre']}`\n🗓 Release Year: `{song['year']}`\n🔢 Track No: `{song['playlist_num']}`\n🔢 Total Track: `{total_tracks}`\n\n[IMAGE]({song.get('cover')})\ntrack id:`{song['deezer_id']}")
-          #      await sleep(0.6)
-                try:
-                   path = await download_songs(item,randomdir)
-                except Exception as e:
-                    pass
-                    await message.reply_text(f"[{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) Track Not Found ⚠️")
-## optional you can clear this or add this by using #
-                    await message.reply(e)
-            #        await message.reply_text(f"try `/saavn {song.get('name')} - {song.get('artist')}`")
-            #        await message.reply(f"[Click Here](https://t.me/)")
-                thumbnail = await thumb_down(song.get('cover'),song.get('deezer_id'))
-            #    await sleep(0.6)
-                audio = FLAC(path)
-                try:
-                    audio["TITLE"] = f" {song.get('name')} "
-                    audio["ORIGINALYEAR"] = song.get('year')
-                    audio["YEAR_OF_RELEASE"] = song.get('year')
-                    audio["WEBSITE"] = "https://t.me/spotify_downloa_bot"
-                    audio["GEEK_SCORE"] = "9"
-                    audio["ARTIST"] = song.get('artist')                                                                           
-                    audio["ALBUM"] = song.get('album')
-                    audio["DATE"] = song.get('year')
-                    audio["discnumber"] =f" {item['disc_number']}"
-                    audio["tracknumber"] =f" {item['track_number']}"
-                    try:
-                        audio["ISRC"] = item['external_ids']['isrc']
-                    except:
-                        pass
-                    try:
-                       songGenius = genius.search_song(song('name'), song('artist'))
-                       audio["LYRICS"] = (songGenius.lyrics)
-                    except:
-                        pass
-                except:
-                     pass
-                audio.save()
-                audi = File(path)
-                image = Picture()
-                image.type = 3
-                if thumbnail.endswith('png'):
-                    mime = 'image/png'
-                else:
-                    mime = 'image/jpeg'
-                image.desc = 'front cover'
-                with open(thumbnail, 'rb') as f: # better than open(albumart, 'rb').read() ?
-                   image.data = f.read()
-
-                audi.add_picture(image)
-                audi.save()
-                try:
-                    await message.reply_chat_action(enums.ChatAction.UPLOAD_AUDIO)
-                    AForCopy = await message.reply_audio(path,performer=song.get('artist'),title=f"{song.get('name')} - {song.get('artist')}",caption=f"[{song.get('name')}](https://open.spotify.com/track/{song.get('deezer_id')}) | {song.get('album')} - {song.get('artist')}",thumb=thumbnail,parse_mode=enums.ParseMode.MARKDOWN,quote=True,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]])) 
-                except:
-                  pass
-                track_no += 1
-                #AForCopy = await message.reply_audio(path,performer=song.get('artist'),title=f"{song.get('name')} - {song.get('artist')}",caption=f"[{song.get('name')}](https://open.spotify.com/track/{song.get('deezer_id')}) | {song.get('album')} - {song.get('artist')}",thumb=thumbnail,parse_mode=enums.ParseMode.MARKDOWN,quote=True,
-                if LOG_GROUP:
-                   await forward(PForCopy,AForCopy)
-                #feedback = await message.reply_text(f"Done✅",   
-                 #reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Feedback", callback_data="feed")]]))
-               # shutil.rmtree(randomdir)
-
-           
-        elif item_type == "album":
-            alb = client.album(album_id=item_id,)
-            try:
-                PForCopy = await message.reply_photo(alb['images'][0]['url'],
-                caption=f"💽Album: {alb['name']}\n👥Artists: {alb['artists'][0]['name']}\n🎧Total tracks{alb['total_tracks']}\n🗂Category: {alb['album_type']}\n📆Published on: {alb['release_date']}\n\n[IMAGE]({alb['images'][0]['url']})\n{alb['uri']}")
-           #     await message.reply_document(alb['images'][0]['url'])
-            except Exception as e:
-                pass
-                err = print(e)
-                PForCopy = await message.reply(f"💽Album: {alb['name']}\n👥Artists: {alb['artists'][0]['name']}\n🎧Total tracks{alb['total_tracks']}\n🗂Category: {alb['album_type']}\n📆Published on: {alb['release_date']}\n\n[IMAGE]({alb['images'][0]['url']})\n{alb['uri']}")
-            for track in alb['tracks']['items']:
-                item = client.track(track_id=track['id'])
-                song = await fetch_spotify_track(client,track.get('id'))
-              #  cForChat = await message.reply_chat_action(enums.ChatAction.TYPING)
-             #   sleeeps = await sleep (0.6)
-                try:
-                   path = await download_songs(item,randomdir)
-                except Exception as e:
-                    pass
-                    await message.reply_text(f"[{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) Track Not Found ⚠️")
-## optional you can clear this or add this by using #
-                    await message.reply(e)
-             #       await message.reply_text(f"try `/saavn {song.get('name')} - {song.get('artist')}`")
-            #        await message.reply(f"[Click Here](https://t.me/)")
-               # path = await download_songs(item,randomdir)
-                thumbnail = await thumb_down(song.get('cover'),song.get('deezer_id'))
-           #     await sleep(0.6)
-                audio = FLAC(path)
-                try:
-                    audio["TITLE"] = f" {song.get('name')} "
-                    audio["ORIGINALYEAR"] = song.get('year')
-                    audio["YEAR_OF_RELEASE"] = song.get('year')
-                    audio["WEBSITE"] = "https://t.me/spotify_downloa_bot"
-                    audio["GEEK_SCORE"] = "9"
-                    audio["ARTIST"] = song.get('artist')                                                                         
-                    audio["ALBUM"] = song.get('album')
-                    audio["DATE"] = song.get('year')
-                    audio["discnumber"] =f" {item['disc_number']}"
-                    audio["tracknumber"] =f" {item['track_number']}"
-                    try:
-                        audio["ISRC"] =f" {item['external_ids']['isrc']}"
-                    except:
-                        pass
-                    try:
-                        songGenius = genius.search_song(song('name'), song('artist'))
-                        audio["LYRICS"] = (songGenius.lyrics)
-                    except:
-                       pass
-                except:
-                    pass
-                audio.save()
-                audi = File(path)
-                image = Picture()
-                image.type = 3
-                if thumbnail.endswith('png'):
-                   mime = 'image/png'
-                else:
-                    mime = 'image/jpeg'
-                image.desc = 'front cover'
-                with open(thumbnail, 'rb') as f: # better than open(albumart, 'rb').read() ?
-                   image.data = f.read()
-
-                audi.add_picture(image)
-                audi.save()
-                try:
-                    AForCopy = await message.reply_audio(path,performer=song.get('artist'),title=f"{song.get('name')} - {song.get('artist')}",caption=f"[{song.get('name')}](https://open.spotify.com/track/{song.get('deezer_id')}) | {song.get('album')} - {song.get('artist')}",thumb=thumbnail,parse_mode=enums.ParseMode.MARKDOWN,quote=True,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-                except:
-                    pass 
-                if LOG_GROUP:
-                   await forward(PForCopy,AForCopy)
-                #feedback = await message.reply_text(f"Done✅",   
-                 # reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Feedback", callback_data="feed")]]))
-                #shutil.rmtree(randomdir)
-           
-        elif item_type == "artist":
-             art = client.artist(item_id)
-             try:
-                 PForCopy = await message.reply_photo(art['images'][0]['url'],
-                 caption=f"👤Artist: **{art['name']}­**\n❤️Followers:{art['followers']['total']}­\n🎶Generes:{art['genres']}­\n🗂Category:{art['type']}­\n❤️Popularity:{art['popularity']}­\n\n[IMAGE]({art['images'][0]['url']})\nArtist id:`{art['id']}`")
-              #   await message.reply_document(art['images'][0]['url'])
-             except Exception as e:
-                 pass
-                 await message.reply(f"👤Artist: **{art['name']}­**\n❤️Followers:{art['followers']['total']}­\n🎶Generes:{art['genres']}­\n🗂Category:{art['type']}­\n❤️Popularity:{art['popularity']}­\n\n[IMAGE]({art['images'][0]['url']})\nArtist id:`{art['id']}`")     
-             
-           #  if u in PREM:
-          #      tracks = client.artist_albums(artist_id=item_id)
-             #else:
-             await message.reply(f"Sending Top 10 tracks of {art['name']}")
-             tracks = client.artist_top_tracks(artist_id=item_id,)
-             for item in tracks['tracks'][:10]:
-                 song = await fetch_spotify_track(client,item.get('id'))
-                 track = client.track(track_id=item['id'])
-                 track_no = 1
-                # await sleep(0.6)
-                 try:
-                     path = await download_songs(item,randomdir)
-                 except Exception as e:
-                     pass
-                     await message.reply_text(f"[{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) Track Not Found ⚠️")
-## optional you can clear this or add this by using #
-                     await message.reply(e)
-            #         await message.reply_text(f"try `/saavn {song.get('name')} - {song.get('artist')}`")
-            #         await message.reply(f"[Click Here](https://t.me/)")
-                 thumbnail = await thumb_down(song.get('cover'),song.get('deezer_id'))
-                 audio = FLAC(path)
-                 try:
-                     audio["TITLE"] = f" {song.get('name')}"
-                     audio["ORIGINALYEAR"] = song.get('year')
-                     audio["YEAR_OF_RELEASE"] = song.get('year')
-                     audio["WEBSITE"] = "https://t.me/spotify_downloa_bot"
-                     audio["GEEK_SCORE"] = "9"
-                     audio["ARTIST"] = art.get('name')                                                                            
-                     audio["ALBUM"] = song.get('album')
-                     audio["DATE"] = song.get('year')
-                     audio["discnumber"] =f" {track['disc_number']}"
-                     audio["tracknumber"] =f" {track['track_number']}"
-                     try:
-                         audio["ISRC"] =f" {track['external_ids']['isrc']}"
-                     except:
-                         pass
-                     try:
-                        songGenius = genius.search_song(song('name'), song('artist'))
-                        audio["LYRICS"] = (songGenius.lyrics)
-                     except:
-                         pass
-                 except:
-                     pass
-                 audio.save()
-                 audi = File(path)
-                 image = Picture() 
-                 image.type = 3
-                 if thumbnail.endswith('png'):
-                    mime = 'image/png'
-                 else:
-                      mime = 'image/jpeg'
-                 image.desc = 'front cover'
-                 with open(thumbnail, 'rb') as f: # better than open(albumart, 'rb').read() ?
-                     image.data = f.read()
- 
-                 audi.add_picture(image)
-                 audi.save()
-                 try:
-                     await message.reply_chat_action(enums.ChatAction.UPLOAD_AUDIO)
-                     AForCopy = await message.reply_audio(path,performer=f"{song.get('artist')}­",title=f"{song.get('name')} - {song.get('artist')}",caption=f"[{song.get('name')}](https://open.spotify.com/track/{song.get('deezer_id')}) | {song.get('album')} - {song.get('artist')}",thumb=thumbnail, parse_mode=enums.ParseMode.MARKDOWN,quote=True,
-                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="❌", callback_data="cancel")]]))
-                 except:
-                     pass
-                 if LOG_GROUP:
-                    await forward(PForCopy,AForCopy)
-    except MissingSchema:
-        pass
-        await message.reply("400: Are You Sure It's valid URL🤨?")
-    except RPCError:
-        pass
-        await message.reply(f"500: telegram says 500 error,so please try again later.❣️")
-    except ChatWriteForbidden:
-        pass
-        chat=message.chat.id
-        try:
-            await client.leave_chat(chat)
-            k = await client.send_message(-1001744816254,f"{chat} {message.chat.username} or {message.from_user.id}")
-            await  k.pin()
-            sp = f"I have left from {chat} reason: I Am Not  Admin "
-            await client.send_message(message.from_user.id,f"{sp}")
-        except:
-            pass
-    except UserIsBlocked:
-        pass
-        K = await  client.send_message(BUG,f" private {message.chat.id}  {message.from_user.id} {message.from_user.mention}")
-        k.pin()
-    except IOError:
-        pass
-        K = await  client.send_message(BUG,f" Private r: socket {message.chat.id}  {message.from_user.id} {message.from_user.mention}")
-        k.pin()
-    except (FileNotFoundError, OSError):
-        pass
-        await message.reply('Sorry, We Are Unable To Procced It 🤕❣️')
-    except BrokenPipeError:
-        pass
-        K = await  client.send_message(BUG,f" private r: broken {message.chat.id}  {message.from_user.id} {message.from_user.mention}")
-    except Forbidden:
-       T = await message.reply_text(f"Dude check weather I have enough rights😎⚠️")
-    except UnboundLocalError:
-       pass
-  #     T = await message.reply_text(f"[{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) Track Not Found ⚠️")
+        os.remove(audio_file)
+        os.remove(thumb_name)
+    except Exception as e:
+        print(e)
+ #  else:
+ #        await message.reply_text(f"<b>Hᴇʏ {message.from_user.mention}❤️... Group is needs to be verified before using Song feature.Contact owner to verify @HELL_GaM</b>")
         
-    except FloodWait as e:
-        pass
-        await sleep(e.value)
-        await message.reply_text(f"420: Telegram says: [420 FLOOD_WAIT_X] - A wait of {e.value} seconds is required !")
-    except SlowmodeWait:
-       pass
-       await sleep(e.value)
-    except IOError as e:
-        pass
-        K = await  client.send_message(BUG,f" private r: broken {message.chat.id} {message.from_user.mention}")
-           
-    except Exception as e:
-        pass
-        LOGGER.error(e)
-        await m.edit(e)
-        await client.send_message(BUG,f" Finnal pv {e}")
-      #  K = await message.reply_text(f"private [{song.get('name')} - {song.get('artist')}](https://open.spotify.com/track/{song.get('deezer_id')}) failed to send error: {e}")
-     #   H = await message.reply_text(f"Done✅",   
-     #        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Error Detected", callback_data="bug")]]))
-    #    await message.reply_text(f"try: `/saavn {song.get('name')}`")
-        await message.reply('503: Sorry, We Are Unable To Procced It 🤕❣️')
-    finally:
-        await sleep(2.0)
-        try:
-            rmtree(randomdir)
-        except:
-            pass
-        try:
-            await message.reply_text(f"Done✅",   
-         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Feedback", callback_data="feed")]]))
-            await m.delete()
-        except:
-            pass 
-       # await message.reply_text(f"thumbnail and details is temp removed due to  there is  something going on telegram side:)")
-           
-@Client.on_callback_query(filters.regex(r"feed"))
-async def feedback(client,query):
-      try:
-          K = await query.message.edit(f"Feedback 🏴‍☠️",
-                  reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Press here", url="https://t.me/HELL_GaM")]]))
-          H = print("New Feedback")
-          if BUG:
-             await copy(K,H)
-      except Exception as e:
-          pass
-         
-@Client.on_callback_query(filters.regex(r"bug"))                                                                                                          
-async def bug(_,query):
-      try:                                                                                                                                  
-          K = await query.message.edit(f'please report to the dev say "private version" with above  error occurred message')
-          await sleep(2.3)
-          H = await query.message.edit(f"Bug Report 🪲",
-                  reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Report to dev ", url="https://t.me/HELL_GaM")]]))
-          if BUG:
-             await copy(K,H)
-      except Exception as e:
-          pass
-          print(e)
 
-@Client.on_callback_query(filters.regex(r"cancel"))                                                                                                          
-async def bug(_,query):
-          await sleep(0.2)
-          await query.message.delete()
-          await query.answer("closed❌")
+def get_text(message: Message) -> [None,str]:
+    text_to_return = message.text
+    if message.text is None:
+        return None
+    if " " not in text_to_return:
+        return None
+    try:
+        return message.text.split(None, 1)[1]
+    except IndexError:
+        return None
+
+
+@Client.on_message(filters.command(["video", "mp4"]))
+async def vsong(client, message: Message):
+    urlissed = get_text(message)
+    pablo = await client.send_message(message.chat.id, f"**𝙵𝙸𝙽𝙳𝙸𝙽𝙶 𝚈𝙾𝚄𝚁 𝚅𝙸𝙳𝙴𝙾** `{urlissed}`")
+    if not urlissed:
+        return await pablo.edit("Invalid Command Syntax Please Check help Menu To Know More!")     
+    search = SearchVideos(f"{urlissed}", offset=1, mode="dict", max_results=1)
+    mi = search.result()
+    mio = mi["search_result"]
+    mo = mio[0]["link"]
+    thum = mio[0]["title"]
+    fridayz = mio[0]["id"]
+    mio[0]["channel"]
+    kekme = f"https://img.youtube.com/vi/{fridayz}/hqdefault.jpg"
+    await asyncio.sleep(0.6)
+    url = mo
+    sedlyf = wget.download(kekme)
+    opts = {
+        "format": "best",
+        "addmetadata": True,
+        "key": "FFmpegMetadata",
+        "prefer_ffmpeg": True,
+        "geo_bypass": True,
+        "nocheckcertificate": True,
+        "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+        "outtmpl": "%(id)s.mp4",
+        "logtostderr": False,
+        "quiet": True,
+    }
+    try:
+        with YoutubeDL(opts) as ytdl:
+            ytdl_data = ytdl.extract_info(url, download=True)
+    except Exception as e:
+        return await pablo.edit_text(f"**𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍 𝙿𝚕𝚎𝚊𝚜𝚎 𝚃𝚛𝚢 𝙰𝚐𝚊𝚒𝚗..♥️** \n**Error :** `{str(e)}`")       
+    
+    file_stark = f"{ytdl_data['id']}.mp4"
+    capy = f"""**𝚃𝙸𝚃𝙻𝙴 :** [{thum}]({mo})\n**𝚁𝙴𝚀𝚄𝙴𝚂𝚃𝙴𝙳 𝙱𝚈 :** {message.from_user.mention}"""
+
+    await client.send_video(
+        message.chat.id,
+        video=open(file_stark, "rb"),
+        duration=int(ytdl_data["duration"]),
+        file_name=str(ytdl_data["title"]),
+        thumb=sedlyf,
+        caption=capy,
+        supports_streaming=True,        
+        reply_to_message_id=message.id 
+    )
+    await pablo.delete()
+    for files in (sedlyf, file_stark):
+        if files and os.path.exists(files):
+            os.remove(files)
